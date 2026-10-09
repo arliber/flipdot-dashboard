@@ -1,6 +1,5 @@
 /* Synthesised flip sound: one tick per disc landing, binned and panned by column. */
 
-import { COLS } from './fonts';
 import type { Hit } from './board';
 
 export class FlipSound {
@@ -53,7 +52,7 @@ export class FlipSound {
       let node: AudioNode = src.connect(g);
       if (ac.createStereoPanner) {
         const pn = ac.createStereoPanner();
-        pn.pan.value = ((xAvg / (COLS - 1)) * 2 - 1) * 0.75;
+        pn.pan.value = (xAvg * 2 - 1) * 0.75;
         node = node.connect(pn);
       }
       node.connect(master);

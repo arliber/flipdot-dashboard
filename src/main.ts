@@ -16,6 +16,7 @@ class App {
   private pageStart = Date.now();
   private wx: WxState = { status: 'loading' };
   private wxSeq = 0;
+  private started = false;
   private lastTap = 0;
   private tapT = 0;
   private lock: WakeLockSentinel | null = null;
@@ -48,7 +49,7 @@ class App {
     if (this.s.wornDots) this.board.rollWorn();
     void this.loadWeather();
     setInterval(() => void this.loadWeather(), WEATHER_REFRESH_MS);
-    setTimeout(() => this.render(true), 400);
+    setTimeout(() => { this.started = true; this.render(true); }, 400);
     const loop = () => setTimeout(() => { this.tick(); loop(); }, 1000 - (Date.now() % 1000) + 5);
     loop();
   }
@@ -70,7 +71,7 @@ class App {
 
   private apply(before: Settings): void {
     const ch = (k: keyof Settings) => before[k] !== this.s[k];
-    if (ch('dotColor') || ch('discShape')) this.layout();
+    if (ch('dotColor') || ch('discShape') || ch('discSize')) this.layout();
     if (ch('showSpecs')) this.specs.hidden = !this.s.showSpecs;
     if (ch('location')) { this.wx = { status: 'loading' }; void this.loadWeather(); this.render(false); }
     if (ch('hour24') || ch('blinkColon')) this.render(false);
@@ -82,8 +83,14 @@ class App {
   }
 
   private layout(): void {
-    this.specs.textContent = this.board.layout(this.s.discShape, this.s.dotColor);
+    const { specs, regrid } = this.board.layout(this.s.discShape, this.s.dotColor, this.s.discSize);
+    this.specs.textContent = specs;
     this.specs.hidden = !this.s.showSpecs;
+    // a new grid starts blank; redraw it (once the intro has played)
+    if (regrid && this.started) {
+      if (this.s.wornDots) this.board.rollWorn();
+      this.render(false);
+    }
   }
 
   /* ---------- weather ---------- */

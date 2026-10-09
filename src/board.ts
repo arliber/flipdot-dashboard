@@ -1,29 +1,35 @@
 /* Canvas flip-disc board: pre-rendered disc sprites, per-disc flip scheduling and animation. */
 
 import { COLS, ROWS, type Frame } from './fonts';
-import type { DiscShape, DotColor, Transition } from './settings';
+import type { DiscShape, DiscSize, DotColor, Transition } from './settings';
 
 /** Flip duration and settle wobble, ms. */
 export const FLIP = 38;
 const SETTLE = 70;
 /** Sprite frames per flip, and per-disc tone variants. */
 const K = 12, V = 5;
-const N = COLS * ROWS;
 
 export const FACES: Record<DotColor, string> = { white: '#f1f0ea', yellow: '#f6dc1e', green: '#b4f53a', orange: '#ff8f1f' };
 
-/** A disc landing: [performance.now() time, column]. */
+/** Disc size presets: how much denser than a fitted 56 × 32 board the grid is. */
+export const DISC_SIZES: Record<DiscSize, number> = { large: 1, medium: 1.5, small: 2, tiny: 3 };
+
+/** A disc landing: [performance.now() time, horizontal position 0..1]. */
 export type Hit = [number, number];
 
 export class Board {
   private ctx: CanvasRenderingContext2D;
   private P = 4;
   private sprites: HTMLCanvasElement[][][] = [];
-  private from = new Uint8Array(N);
-  private to = new Uint8Array(N);
-  private t0 = new Float64Array(N).fill(-1);
-  private inActive = new Uint8Array(N);
-  private variant = Uint8Array.from({ length: N }, () => Math.floor(Math.random() * V));
+  /** Grid dimensions; at least COLS × ROWS, larger when discs are smaller than a fitted board. */
+  private cols = 0;
+  private rows = 0;
+  private n = 0;
+  private from = new Uint8Array(0);
+  private to = new Uint8Array(0);
+  private t0 = new Float64Array(0);
+  private inActive = new Uint8Array(0);
+  private variant = new Uint8Array(0);
   private active: number[] = [];
   private stuck = new Set<number>();
   private slow = new Set<number>();
@@ -33,25 +39,47 @@ export class Board {
     this.ctx = canvas.getContext('2d')!;
   }
 
-  /** Size the board to the viewport and rebuild sprites. Returns a measurement readout. */
-  layout(shape: DiscShape, color: DotColor): string {
+  /**
+   * Size the board to the viewport and rebuild sprites. Returns a measurement readout, and whether
+   * the grid dimensions changed, which resets every disc so the caller should re-render.
+   */
+  layout(shape: DiscShape, color: DotColor, size: DiscSize): { specs: string; regrid: boolean } {
     const c = this.canvas, dpr = window.devicePixelRatio || 1;
     const W = Math.round(innerWidth * dpr), H = Math.round(innerHeight * dpr);
-    const P = Math.max(4, Math.floor(Math.min(W / COLS, H / ROWS)));
+    const fitP = Math.floor(Math.min(W / COLS, H / ROWS));
+    const density = DISC_SIZES[size] || 1;
+    const P = Math.max(4, Math.floor(fitP / density));
+    // a fitted board stays exactly 56 × 32; denser boards grow to fill the screen
+    const cols = density === 1 ? COLS : Math.max(COLS, Math.floor(W / P));
+    const rows = density === 1 ? ROWS : Math.max(ROWS, Math.floor(H / P));
     this.P = P;
-    c.width = P * COLS; c.height = P * ROWS;
-    c.style.width = (P * COLS) / dpr + 'px'; c.style.height = (P * ROWS) / dpr + 'px';
+    const regrid = cols !== this.cols || rows !== this.rows;
+    if (regrid) this.alloc(cols, rows);
+    c.width = P * cols; c.height = P * rows;
+    c.style.width = (P * cols) / dpr + 'px'; c.style.height = (P * rows) / dpr + 'px';
     this.buildSprites(shape, color);
     this.drawAll();
-    const ox = Math.round((W - P * COLS) / 2), oy = Math.round((H - P * ROWS) / 2);
-    return (
-      `grid      ${COLS} × ${ROWS} discs\n` +
+    const ox = Math.round((W - P * cols) / 2), oy = Math.round((H - P * rows) / 2);
+    const specs =
+      `grid      ${cols} × ${rows} discs  (content ${COLS} × ${ROWS})\n` +
       `pitch     ${P} device px  (${(P / dpr).toFixed(2)} css px)\n` +
       `disc Ø    ${Math.round(P * 0.84)} device px\n` +
-      `board     ${P * COLS} × ${P * ROWS} device px\n` +
+      `board     ${P * cols} × ${P * rows} device px\n` +
       `origin    ${ox}, ${oy} device px (top-left cell)\n` +
-      `screen    ${W} × ${H} device px  ·  dpr ${dpr}`
-    );
+      `screen    ${W} × ${H} device px  ·  dpr ${dpr}`;
+    return { specs, regrid };
+  }
+
+  private alloc(cols: number, rows: number): void {
+    const n = cols * rows;
+    this.cols = cols; this.rows = rows; this.n = n;
+    this.from = new Uint8Array(n);
+    this.to = new Uint8Array(n);
+    this.t0 = new Float64Array(n).fill(-1);
+    this.inActive = new Uint8Array(n);
+    this.variant = Uint8Array.from({ length: n }, () => Math.floor(Math.random() * V));
+    this.active = [];
+    this.stuck.clear(); this.slow.clear();
   }
 
   private buildSprites(shape: DiscShape, color: DotColor): void {
@@ -140,11 +168,11 @@ export class Board {
 
   private drawDot(i: number, face: number, w: number): void {
     const k = Math.max(0, Math.min(K - 1, Math.round(w * (K - 1))));
-    this.ctx.drawImage(this.sprites[face][this.variant[i]][k], (i % COLS) * this.P, Math.floor(i / COLS) * this.P);
+    this.ctx.drawImage(this.sprites[face][this.variant[i]][k], (i % this.cols) * this.P, Math.floor(i / this.cols) * this.P);
   }
 
   private drawAll(): void {
-    for (let i = 0; i < N; i++) this.drawDot(i, this.t0[i] >= 0 ? this.from[i] : this.to[i], 1);
+    for (let i = 0; i < this.n; i++) this.drawDot(i, this.t0[i] >= 0 ? this.from[i] : this.to[i], 1);
   }
 
   private loop = (): void => {
@@ -186,19 +214,23 @@ export class Board {
     if (!this.inActive[i]) { this.inActive[i] = 1; this.active.push(i); }
   }
 
-  /** Animate the board towards `buf` using the given transition timing. */
+  /** Animate the board towards `buf` (a COLS × ROWS frame, centred in the grid) using the given transition timing. */
   setFrame(buf: Frame, style: Transition): void {
-    const now = performance.now(), hits: Hit[] = [];
-    for (let x = 0; x < COLS; x++) for (let y = 0; y < ROWS; y++) {
-      const i = y * COLS + x, v = buf[i];
+    const now = performance.now(), hits: Hit[] = [], { cols, rows } = this;
+    const ox = Math.floor((cols - COLS) / 2), oy = Math.floor((rows - ROWS) / 2);
+    // keep sweep transitions the same duration on denser grids
+    const sx = COLS / cols, sy = ROWS / rows;
+    for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) {
+      const i = y * cols + x, fx = x - ox, fy = y - oy;
+      const v = fx >= 0 && fx < COLS && fy >= 0 && fy < ROWS ? buf[fy * COLS + fx] : 0;
       if (this.stuck.has(i) || this.to[i] === v) continue;
-      let d = style === 'cascade' ? y * 13 + Math.random() * 4
+      let d = style === 'cascade' ? y * sy * 13 + Math.random() * 4
         : style === 'scatter' ? Math.random() * 800
         : style === 'flush' ? Math.random() * 12
-        : x * 7 + y * 0.12 + Math.random() * 1.5;
+        : x * sx * 7 + y * sy * 0.12 + Math.random() * 1.5;
       if (this.slow.has(i)) d += 140 + Math.random() * 160;
       const t = this.schedule(i, v, now + d);
-      if (t != null) hits.push([t + FLIP, x]);
+      if (t != null) hits.push([t + FLIP, x / (cols - 1)]);
     }
     this.onHits(hits);
     this.kick();
@@ -208,12 +240,12 @@ export class Board {
   rollWorn(): void {
     this.stuck.clear(); this.slow.clear();
     for (let n = 0; n < 4; n++) {
-      const i = Math.floor(Math.random() * N);
+      const i = Math.floor(Math.random() * this.n);
       this.stuck.add(i);
       const v = Math.random() < 0.5 ? 1 : 0;
       if (this.to[i] !== v) this.schedule(i, v, performance.now() + 50);
     }
-    for (let n = 0; n < 14; n++) this.slow.add(Math.floor(Math.random() * N));
+    for (let n = 0; n < 14; n++) this.slow.add(Math.floor(Math.random() * this.n));
     this.kick();
   }
 

@@ -1,9 +1,12 @@
 export type DiscShape = 'notched' | 'round' | 'octagon' | 'square' | 'rounded';
+export type DiscSize = 'large' | 'medium' | 'small' | 'tiny';
 export type DotColor = 'white' | 'yellow' | 'green' | 'orange';
 export type Transition = 'wipe' | 'cascade' | 'scatter' | 'flush';
 
 export interface Settings {
   discShape: DiscShape;
+  /** Disc pitch; smaller discs give a bigger grid with the content centred. */
+  discSize: DiscSize;
   dotColor: DotColor;
   transition: Transition;
   wornDots: boolean;
@@ -20,6 +23,7 @@ export interface Settings {
 
 export const DEFAULTS: Settings = {
   discShape: 'notched',
+  discSize: 'large',
   dotColor: 'white',
   transition: 'wipe',
   wornDots: false,

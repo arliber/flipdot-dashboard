@@ -9,7 +9,9 @@ Designed in Claude Design (`Flipdot Dashboard v2`) and implemented here in Vite 
 ## Use
 
 - **Tap** the display to go to the next page. The first tap also enables sound, keeps the screen awake and enters fullscreen.
-- **Double-tap** to open settings: disc shape and colour, page transition, auto-rotate interval, flip sound and volume, 24-hour clock, blinking colon, worn discs, grid measurements and weather location.
+- **Double-tap** to open settings: disc shape, size and colour, page transition, auto-rotate interval, flip sound and volume, 24-hour clock, blinking colon, worn discs, grid measurements and weather location.
+
+**Disc size** sets the resolution. Large fits the 56 × 32 content to the screen; Medium, Small and Tiny shrink the discs by 1.5×, 2× and 3×, and the grid grows to fill the screen with the content centred, like a bigger physical panel.
 
 Settings are saved in `localStorage`.
 

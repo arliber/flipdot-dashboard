@@ -36,6 +36,7 @@ export class Panel {
       <div class="sheet">
         <div class="head"><div class="title">Settings</div><button class="pill" data-act="close">Done</button></div>
         ${section('Disc shape', `<div class="segs">${seg('discShape', [['notched', 'Notched'], ['round', 'Round'], ['octagon', 'Octagon'], ['square', 'Square'], ['rounded', 'Rounded']])}</div>`)}
+        ${section('Disc size', `<div class="segs">${seg('discSize', [['large', 'Large'], ['medium', 'Medium'], ['small', 'Small'], ['tiny', 'Tiny']])}</div>`)}
         ${section('Disc colour', `<div class="swatches">${Object.entries(FACES)
           .map(([k, hex]) => `<button class="swatch" data-key="dotColor" data-value='"${k}"'><span class="chip" style="background:${hex}"></span><span>${cap(k)}</span></button>`)
           .join('')}</div>`)}
