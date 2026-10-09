@@ -1,13 +1,14 @@
-/* Bitmap fonts and frame-buffer drawing helpers for the 56 × 32 board. */
+/* Bitmap fonts and frame-buffer drawing helpers. */
 
+/** The standard board, which the original design was authored for. */
 export const COLS = 56;
 export const ROWS = 32;
 
 export type Glyph = string[];
 export type Font = Record<string, Glyph>;
-export type Frame = Uint8Array;
+export interface Frame { w: number; h: number; buf: Uint8Array }
 
-export const newFrame = (): Frame => new Uint8Array(COLS * ROWS);
+export const newFrame = (w = COLS, h = ROWS): Frame => ({ w, h, buf: new Uint8Array(w * h) });
 
 /** Expand a compact row spec: "##.. #..#*3" → ["##..", "#..#", "#..#", "#..#"]. */
 export const R = (spec: string): Glyph =>
@@ -36,6 +37,40 @@ export const BIG = font({
   ' ': '....*16',
 });
 
+/** 6 × 10 bold digits, for large discs. */
+export const MID = font({
+  '0': '.####. ###### ##..##*6 ###### .####.',
+  '1': '..##.. .###.. ####.. ..##..*6 ######',
+  '2': '.####. ###### ##..## ....## .##### #####. ##.... ##.... ###### ######',
+  '3': '.####. ###### ##..## ....## ..####*2 ....## ##..## ###### .####.',
+  '4': '##..##*5 ######*2 ....##*3',
+  '5': '######*2 ##.... #####. ###### ....##*2 ##..## ###### .####.',
+  '6': '.####. ###### ##.... #####. ###### ##..##*3 ###### .####.',
+  '7': '######*2 ....##*2 ...##. ..##..*5',
+  '8': '.####. ###### ##..##*2 .####.*2 ##..##*2 ###### .####.',
+  '9': '.####. ###### ##..##*3 ###### .##### ....## ###### .####.',
+  '-': '....*4 ####*2 ....*4',
+  '°': '.##. #..#*2 .##. ....*6',
+  ' ': '...*10',
+});
+
+/** 5 × 9 bold digits, for extra-large discs. */
+export const NARROW = font({
+  '0': '.###. ##### ##.##*5 ##### .###.',
+  '1': '.##.. ###.. .##..*6 ####.',
+  '2': '.###. ##.## ...## ..##. .##.. ##... ##... #####*2',
+  '3': '####. ##### ...## ..###*2 ...##*2 ##### ####.',
+  '4': '##.##*4 #####*2 ...##*3',
+  '5': '#####*2 ##... ####. ##### ...##*2 ##### ####.',
+  '6': '.#### ##### ##... ####. ##### ##.##*2 ##### .###.',
+  '7': '#####*2 ...##*2 ..##. .##..*4',
+  '8': '.###. ##.##*2 .###. ##.##*3 ##### .###.',
+  '9': '.###. ##### ##.##*2 ##### .#### ...## ##### ####.',
+  '-': '....*3 ####*2 ....*4',
+  '°': '.##. #..#*2 .##. ....*5',
+  ' ': '..*9',
+});
+
 /** 5 × 7 text font. */
 export const F7 = font({
   A: '.###. #...# #...# ##### #...# #...# #...#', B: '####. #...# #...# ####. #...# #...# ####.',
@@ -55,8 +90,15 @@ export const F7 = font({
   '-': '....*3 #### ....*3', '°': '.#. #.# .#. ...*4', ' ': '...*7', ':': '. # . . . # .', '/': '....# ...#.*2 ..#.. .#...*2 #....',
 });
 
-/** 3 × 5 small digits. */
+/** 3 × 5 small text font. */
 export const F5 = font({
+  A: '.#. #.# ### #.# #.#', B: '##. #.# ##. #.# ##.', C: '.## #.. #.. #.. .##', D: '##. #.# #.# #.# ##.',
+  E: '### #.. ##. #.. ###', F: '### #.. ##. #.. #..', G: '.## #.. #.# #.# .##', H: '#.# #.# ### #.# #.#',
+  I: '### .#. .#. .#. ###', J: '..# ..# ..# #.# .#.', K: '#.# #.# ##. #.# #.#', L: '#.. #.. #.. #.. ###',
+  M: '#.# ### ### #.# #.#', N: '##. #.# #.# #.# #.#', O: '.#. #.# #.# #.# .#.', P: '##. #.# ##. #.. #..',
+  Q: '.#. #.# #.# ##. .##', R: '##. #.# ##. #.# #.#', S: '.## #.. .#. ..# ##.', T: '### .#. .#. .#. .#.',
+  U: '#.# #.# #.# #.# ###', V: '#.# #.# #.# #.# .#.', W: '#.# #.# ### ### #.#', X: '#.# #.# .#. #.# #.#',
+  Y: '#.# #.# .#. .#. .#.', Z: '### ..# .#. #.. ###', '°': '## ## .. .. ..', ':': '. # . # .',
   '0': '### #.#*3 ###', '1': '.#. ##. .#.*2 ###', '2': '##. ..# .#. #.. ###', '3': '##. ..# .#. ..# ##.',
   '4': '#.#*2 ### ..#*2', '5': '### #.. ##. ..# ##.', '6': '.## #.. ### #.# ###', '7': '### ..# .#.*3',
   '8': '### #.# ### #.# ###', '9': '### #.# ### ..# ##.', '-': '... ... ### ... ...', '·': '. . # . .', ' ': '.. .. .. .. ..',
@@ -66,13 +108,13 @@ export const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 export const MONS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
 /** Draw a glyph into the frame; returns its width. */
-export function blit(buf: Frame, rows: Glyph, x: number, y: number): number {
+export function blit(fr: Frame, rows: Glyph, x: number, y: number): number {
   for (let dy = 0; dy < rows.length; dy++) {
     const r = rows[dy];
     for (let dx = 0; dx < r.length; dx++) {
       if (r[dx] !== '#') continue;
       const X = x + dx, Y = y + dy;
-      if (X >= 0 && X < COLS && Y >= 0 && Y < ROWS) buf[Y * COLS + X] = 1;
+      if (X >= 0 && X < fr.w && Y >= 0 && Y < fr.h) fr.buf[Y * fr.w + X] = 1;
     }
   }
   return rows[0].length;
@@ -80,14 +122,17 @@ export function blit(buf: Frame, rows: Glyph, x: number, y: number): number {
 
 const glyph = (f: Font, ch: string): Glyph => f[ch] || f[' '];
 
+/** Glyph height of a font. */
+export const fontH = (f: Font): number => f[' '].length;
+
 export const textW = (f: Font, s: string, gap = 1): number => {
   let w = 0;
   for (const ch of s) w += glyph(f, ch)[0].length + gap;
   return Math.max(0, w - gap);
 };
 
-export function text(buf: Frame, f: Font, s: string, x: number, y: number, gap = 1): void {
-  for (const ch of s) x += blit(buf, glyph(f, ch), x, y) + gap;
+export function text(fr: Frame, f: Font, s: string, x: number, y: number, gap = 1): void {
+  for (const ch of s) x += blit(fr, glyph(f, ch), x, y) + gap;
 }
 
 export const centerX = (f: Font, s: string, gap = 1, x0 = 0, w = COLS): number =>

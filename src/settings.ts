@@ -1,11 +1,11 @@
 export type DiscShape = 'notched' | 'round' | 'octagon' | 'square' | 'rounded';
-export type DiscSize = 'large' | 'medium' | 'small' | 'tiny';
+export type DiscSize = 'standard' | 'large' | 'xlarge';
 export type DotColor = 'white' | 'yellow' | 'green' | 'orange';
 export type Transition = 'wipe' | 'cascade' | 'scatter' | 'flush';
 
 export interface Settings {
   discShape: DiscShape;
-  /** Disc pitch; smaller discs give a bigger grid with the content centred. */
+  /** Disc pitch; larger discs mean fewer of them, and pages re-lay out to fit. */
   discSize: DiscSize;
   dotColor: DotColor;
   transition: Transition;
@@ -23,7 +23,7 @@ export interface Settings {
 
 export const DEFAULTS: Settings = {
   discShape: 'notched',
-  discSize: 'large',
+  discSize: 'standard',
   dotColor: 'white',
   transition: 'wipe',
   wornDots: false,
@@ -37,10 +37,13 @@ export const DEFAULTS: Settings = {
 };
 
 const STORE = 'flipdot.settings.v1';
+const DISC_SIZE_KEYS: DiscSize[] = ['standard', 'large', 'xlarge'];
 
 export function loadSettings(): Settings {
   try {
-    return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(STORE) ?? 'null') || {}) };
+    const s: Settings = { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(STORE) ?? 'null') || {}) };
+    if (!DISC_SIZE_KEYS.includes(s.discSize)) s.discSize = DEFAULTS.discSize; // values from older versions
+    return s;
   } catch {
     return { ...DEFAULTS };
   }

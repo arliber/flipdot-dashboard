@@ -11,7 +11,7 @@ Designed in Claude Design (`Flipdot Dashboard v2`) and implemented here in Vite 
 - **Tap** the display to go to the next page. The first tap also enables sound, keeps the screen awake and enters fullscreen.
 - **Double-tap** to open settings: disc shape, size and colour, page transition, auto-rotate interval, flip sound and volume, 24-hour clock, blinking colon, worn discs, grid measurements and weather location.
 
-**Disc size** sets the resolution. Large fits the 56 × 32 content to the screen; Medium, Small and Tiny shrink the discs by 1.5×, 2× and 3×, and the grid grows to fill the screen with the content centred, like a bigger physical panel.
+**Disc size** sets the resolution. Standard is the original 56 × 32 board. Large and Extra large make each disc 1.33× and 2× bigger, so the screen holds fewer of them (about 42 × 24 and 28 × 16 on a 16:9 screen), and every page re-lays itself out for that grid, picking the largest fonts and icons that fit.
 
 Settings are saved in `localStorage`.
 
@@ -39,7 +39,7 @@ Pushing to `main` deploys to GitHub Pages via `.github/workflows/deploy.yml`.
 | --- | --- |
 | `src/main.ts` | App controller: pages, ticking, input, settings changes |
 | `src/board.ts` | Canvas board: disc sprites, flip scheduling and animation |
-| `src/pages.ts` | Page renderers returning 56 × 32 frames |
+| `src/pages.ts` | Page renderers: original layouts at 56 × 32, fitted layouts for other grids |
 | `src/fonts.ts` | Bitmap fonts and frame drawing helpers |
 | `src/icons.ts` | Procedural weather icons, WMO code mapping |
 | `src/weather.ts` | Open-Meteo fetch and geocoding |

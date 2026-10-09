@@ -11,8 +11,8 @@ const K = 12, V = 5;
 
 export const FACES: Record<DotColor, string> = { white: '#f1f0ea', yellow: '#f6dc1e', green: '#b4f53a', orange: '#ff8f1f' };
 
-/** Disc size presets: how much denser than a fitted 56 × 32 board the grid is. */
-export const DISC_SIZES: Record<DiscSize, number> = { large: 1, medium: 1.5, small: 2, tiny: 3 };
+/** Disc size presets: disc pitch relative to a 56 × 32 board fitted to the screen. */
+export const DISC_SIZES: Record<DiscSize, number> = { standard: 1, large: 4 / 3, xlarge: 2 };
 
 /** A disc landing: [performance.now() time, horizontal position 0..1]. */
 export type Hit = [number, number];
@@ -21,7 +21,7 @@ export class Board {
   private ctx: CanvasRenderingContext2D;
   private P = 4;
   private sprites: HTMLCanvasElement[][][] = [];
-  /** Grid dimensions; at least COLS × ROWS, larger when discs are smaller than a fitted board. */
+  /** Grid dimensions: COLS × ROWS at standard size, fewer discs when they are larger. */
   private cols = 0;
   private rows = 0;
   private n = 0;
@@ -47,11 +47,11 @@ export class Board {
     const c = this.canvas, dpr = window.devicePixelRatio || 1;
     const W = Math.round(innerWidth * dpr), H = Math.round(innerHeight * dpr);
     const fitP = Math.floor(Math.min(W / COLS, H / ROWS));
-    const density = DISC_SIZES[size] || 1;
-    const P = Math.max(4, Math.floor(fitP / density));
-    // a fitted board stays exactly 56 × 32; denser boards grow to fill the screen
-    const cols = density === 1 ? COLS : Math.max(COLS, Math.floor(W / P));
-    const rows = density === 1 ? ROWS : Math.max(ROWS, Math.floor(H / P));
+    const scale = DISC_SIZES[size] || 1;
+    const P = Math.max(4, Math.floor(fitP * scale));
+    // the standard board stays exactly 56 × 32; larger discs fill the screen with a smaller grid
+    const cols = scale === 1 ? COLS : Math.max(8, Math.floor(W / P));
+    const rows = scale === 1 ? ROWS : Math.max(5, Math.floor(H / P));
     this.P = P;
     const regrid = cols !== this.cols || rows !== this.rows;
     if (regrid) this.alloc(cols, rows);
@@ -61,7 +61,7 @@ export class Board {
     this.drawAll();
     const ox = Math.round((W - P * cols) / 2), oy = Math.round((H - P * rows) / 2);
     const specs =
-      `grid      ${cols} × ${rows} discs  (content ${COLS} × ${ROWS})\n` +
+      `grid      ${cols} × ${rows} discs\n` +
       `pitch     ${P} device px  (${(P / dpr).toFixed(2)} css px)\n` +
       `disc Ø    ${Math.round(P * 0.84)} device px\n` +
       `board     ${P * cols} × ${P * rows} device px\n` +
@@ -214,15 +214,16 @@ export class Board {
     if (!this.inActive[i]) { this.inActive[i] = 1; this.active.push(i); }
   }
 
-  /** Animate the board towards `buf` (a COLS × ROWS frame, centred in the grid) using the given transition timing. */
-  setFrame(buf: Frame, style: Transition): void {
+  get size(): { cols: number; rows: number } { return { cols: this.cols, rows: this.rows }; }
+
+  /** Animate the board towards a frame of the grid's size using the given transition timing. */
+  setFrame(fr: Frame, style: Transition): void {
+    if (fr.w !== this.cols || fr.h !== this.rows) return; // stale frame from before a regrid
     const now = performance.now(), hits: Hit[] = [], { cols, rows } = this;
-    const ox = Math.floor((cols - COLS) / 2), oy = Math.floor((rows - ROWS) / 2);
-    // keep sweep transitions the same duration on denser grids
+    // keep sweep transitions the same duration whatever the grid size
     const sx = COLS / cols, sy = ROWS / rows;
     for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) {
-      const i = y * cols + x, fx = x - ox, fy = y - oy;
-      const v = fx >= 0 && fx < COLS && fy >= 0 && fy < ROWS ? buf[fy * COLS + fx] : 0;
+      const i = y * cols + x, v = fr.buf[i];
       if (this.stuck.has(i) || this.to[i] === v) continue;
       let d = style === 'cascade' ? y * sy * 13 + Math.random() * 4
         : style === 'scatter' ? Math.random() * 800

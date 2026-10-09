@@ -107,9 +107,10 @@ class App {
 
   /* ---------- pages ---------- */
   private render(pageChange: boolean): void {
-    const frame = this.page === 0 ? pageClock(this.s.hour24, this.s.blinkColon)
-      : this.page === 1 ? pageNow(this.wx)
-      : pageForecast(this.wx);
+    const { cols, rows } = this.board.size;
+    const frame = this.page === 0 ? pageClock(cols, rows, this.s.hour24, this.s.blinkColon)
+      : this.page === 1 ? pageNow(cols, rows, this.wx)
+      : pageForecast(cols, rows, this.wx);
     this.board.setFrame(frame, pageChange ? this.s.transition : 'wipe');
   }
 
